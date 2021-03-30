@@ -11,15 +11,16 @@ import lifetimes.plotting
 
 def  CBCV_steps():
     print('Step 1: Create RFM dataframe from the dataset')
-    print('Step 2: Fit Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
-    print('Step 3: Predict probability_alive')
-    print('Step 4: Predict expected number of purchases, pred_num_txn')
-    print('Step 5: Check predicted data to make sure it makes sense')
-    print('Step 6: Check correlation of frequency & monetary_value')
-    print('Step 7: Fit Gamma-Gamma model to predict monetary value')
-    print('Step 8: Predict exp_avg_sales and compare to actual')
-    print('Step 9: Predict Lifetime Value, predicted_ltv')
-    print('Step 10: Check predicted_ltv to manual_predicted_ltv')
+    print('Step 2: FIT Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
+    print('Step 3: PREDICT probability_alive')
+    print('Step 4: PREDICT expected number of purchases, pred_num_txn')
+    print('Step 5: CHECK predicted data to make sure it makes sense')
+    print('TRAIN, TEST SPLIT or  CALIBRATION and HOLDOUT')
+    print('Step 6: CHECK correlation of frequency & monetary_value')
+    print('Step 7: FIT Gamma-Gamma model to predict monetary value')
+    print('Step 8: PREDICT exp_avg_sales and compare to actual')
+    print('Step 9: PREDICT Lifetime Value, predicted_ltv')
+    print('Step 10: CHECK predicted_ltv to manual_predicted_ltv')
     print('Step 11: Calculate CLV by multipying predicted_ltv * profit_margin')
     print('CLTV = LTV * Profit Margin \n')
     print('CBCV approach:  ')
@@ -30,14 +31,19 @@ def  CBCV_steps():
     print('Possibly divide Value of Future Customer by WACC to get Present Value of Future Customers')
 
 def create_rfm_python(data):
-    customer = data.groupby('Customer').agg({'Date':lambda x: (x.max)() - x.min().days,
+    customer = data.groupby('Customer ID').agg({'Date':lambda x: (x.max)() - x.min().days,
                                              'Document_Number': lambda x: len(x),
                                              'Sales Total': lambda x: sum(x)})
     customer.columns = ['Age', 'Frequency', 'Total Sales']
     return customer
 
-def create_rfm_lifetimes(data):
-    summary = lifetimes.utils.summary_data_from_transaction_data(data, 'Customer', 'Date', 'Sales Total')
+def create_rfm_lifetimes(data,observation_period_end):
+    summary = lifetimes.utils.summary_data_from_transaction_data(data, 
+                                                                customer_id_col = 'Customer ID',
+                                                                datetime_col = 'Date',
+                                                                monetary_value_col= 'Sales Total',
+                                                                observation_period_end=None,
+                                                                freq='D')
     summary.reset_index()
     return summary
 
@@ -47,13 +53,22 @@ def create_rfm_lifetimes(data):
 if __name__ == "__main__":
     #CBCV_steps()
     #print(os.getcwd())
+    
+    print('Assumptions')
+    calibration_period_end='2020-09-30',
+    observation_period_end='2020-12-31'
+
+
+
+
+    print("Step 0: Read in customer sales data")
     data = pd.read_csv('../data/processed/sales.csv')
     print(data.head())
-    
+
 
 
     print('\n Step 1: Create RFM dataframe from the dataset ')
-    summary = create_rfm_lifetimes(data)
+    summary = create_rfm_lifetimes(data,observation_period_end==observation_period_end)
     summary.to_csv('../data/processed/rfm.csv')
     print(summary.head(),'\n')
     #visualize it
@@ -91,12 +106,21 @@ if __name__ == "__main__":
     t =30
     summary['pred_num_txn'] = round(bgf.conditional_expected_number_of_purchases_up_to_time(t, summary['frequency'], summary['recency'], summary['T']))
     print(summary.sort_values(by='pred_num_txn', ascending=False).head(10).reset_index())
-
-
+    print('\n--------------------------')
+    print(summary.sort_values(by='pred_num_txn').tail(5))
+    
+    print('\nTop 5 customers that the model expects to make a purchase in next month')
 
     print('\n\n Step 5: Check predicted data to make sure it makes sense \n')
+    lifetimes.plotting.plot_period_transactions(bgf)
+    plt.show()
     summary.to_csv('../data/processed/btyd_step5.csv')
     print(summary.sort_values(by=['pred_num_txn'],ascending=False))
+    print('---------------------')
+    t=30
+    school = summary.loc[100625]
+    print(f'/n/n Customer #, {school}, future transaction over next, {t} ,days')
+    print(bgf.predict(t, school['frequency'], school['recency'], school['T']))
     # Customer is currently the index...need to create customer id and reset index
     #print(summary.columns)
     # change column to pred_num_txn_t
@@ -105,10 +129,24 @@ if __name__ == "__main__":
 
 
 
+    print('\n\nTRAIN, TEST SPLIT or  CALIBRATION and HOLDOUT')
+    summary_cal_holdout = lifetimes.utils.calibration_and_holdout_data(data,'Customer ID', 'Date', 
+                                                                        calibration_period_end='2020-09-30',
+                                                                        observation_period_end='2020-12-31')
+    print(summary_cal_holdout.head())
+
+    print('Plot calibration purchases vs holdout purchases')
+    bgf.fit(summary_cal_holdout['frequency_cal'],
+            summary_cal_holdout['recency_cal'],
+            summary_cal_holdout['T_cal'])
+    lifetimes.plotting.plot_calibration_purchases_vs_holdout_purchases(bgf,summary_cal_holdout)
+    plt.show()
+
+
     print('\n\n Step 6: Check correlation of frequency & monetary_value \n')
     return_customers_summary = summary[summary['frequency']>0]
-    print(return_customers_summary.shape)
     print(return_customers_summary.head())
+    print(return_customers_summary.shape)
     return_customers_summary.to_csv('../data/processed/return_customers_summary.csv')
     '''
     # # TROUBLESHOOTING: ValueError("There exist non-positive (<= 0) values in the monetary_value vector.") ValueError: There exist non-positive (<= 0) values in the monetary_value vector.
@@ -146,14 +184,14 @@ if __name__ == "__main__":
                                                             summary['monetary_value'],
                                                             time=1,
                                                             freq='D',
-                                                            discount_rate=0.5)
+                                                            discount_rate=0.05) #should we breakdown discount rate by 12 since t=30?
     print(summary.head())
 
 
 
 
     print('\n\n Step 10: Check predicted_ltv to manual_predicted_ltv')
-    summary['manual_predicted_ltv'] = summary['pred_num_txn'] * summary['exp_avg_sales']
+    #summary['manual_predicted_ltv'] = summary['pred_num_txn'] * summary['exp_avg_sales']
     print(summary[summary['pred_num_txn']>0].head())
 
 
@@ -162,21 +200,8 @@ if __name__ == "__main__":
     profit_margin = 0.26
     summary['CLV'] = summary['predicted_ltv']*profit_margin
     print(summary[summary['pred_num_txn']>0].head())
-    summary.to_csv('../data/processed/CLTV.csv')
-
+    summary.to_csv('../data/processed/BTYD_CLTV.csv')
+    print('\n\nCLTV.csv saved')
     # Needs to actually use machine learning and have a train and test aka holdout
 
-    print('CBCV approach:  ')
-    #need to state:
-        # cac
-            #chart cac/yer
-        # actual ARPU
-            #chart ARPU/yr
-        # NOA
-        # ND
-        # FC
-        # TR
-        # WACC
 
-    #cohort analysis to find existing customer expected CLTV
-        #and to find expected customer acquisition 
