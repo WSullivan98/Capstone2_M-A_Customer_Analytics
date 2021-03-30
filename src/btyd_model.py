@@ -1,0 +1,182 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import os
+import lifetimes
+import lifetimes.utils
+import lifetimes.fitters
+import lifetimes.plotting
+
+
+
+def  CBCV_steps():
+    print('Step 1: Create RFM dataframe from the dataset')
+    print('Step 2: Fit Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
+    print('Step 3: Predict probability_alive')
+    print('Step 4: Predict expected number of purchases, pred_num_txn')
+    print('Step 5: Check predicted data to make sure it makes sense')
+    print('Step 6: Check correlation of frequency & monetary_value')
+    print('Step 7: Fit Gamma-Gamma model to predict monetary value')
+    print('Step 8: Predict exp_avg_sales and compare to actual')
+    print('Step 9: Predict Lifetime Value, predicted_ltv')
+    print('Step 10: Check predicted_ltv to manual_predicted_ltv')
+    print('Step 11: Calculate CLV by multipying predicted_ltv * profit_margin')
+    print('CLTV = LTV * Profit Margin \n')
+    print('CBCV approach:  ')
+    # print('FCF = Customer Value - Fixed Cost * 1-Tax Rate
+    print('Customer value (CV) - Fixed Cost(FC) * (1-Tax Rate) + Net Operatign Assets (NOA) - Net Debt (ND)')
+    print('Customer Value = Present Value of Future Customers + Present Value of Existing Customers')
+    print('Present Value of Future Customers = Number of New Customers * ( CLTV of New Customers * Customer Acquisition Costs')
+    print('Possibly divide Value of Future Customer by WACC to get Present Value of Future Customers')
+
+def create_rfm_python(data):
+    customer = data.groupby('Customer').agg({'Date':lambda x: (x.max)() - x.min().days,
+                                             'Document_Number': lambda x: len(x),
+                                             'Sales Total': lambda x: sum(x)})
+    customer.columns = ['Age', 'Frequency', 'Total Sales']
+    return customer
+
+def create_rfm_lifetimes(data):
+    summary = lifetimes.utils.summary_data_from_transaction_data(data, 'Customer', 'Date', 'Sales Total')
+    summary.reset_index()
+    return summary
+
+
+
+
+if __name__ == "__main__":
+    #CBCV_steps()
+    #print(os.getcwd())
+    data = pd.read_csv('../data/processed/sales.csv')
+    print(data.head())
+    
+
+
+    print('\n Step 1: Create RFM dataframe from the dataset ')
+    summary = create_rfm_lifetimes(data)
+    summary.to_csv('../data/processed/rfm.csv')
+    print(summary.head(),'\n')
+    #visualize it
+    fig = plt.figure(figsize=(12,8))
+    summary['frequency'].plot(kind='hist', bins=35, title='Frequency Histogram') #add labels etc.
+    plt.show()
+    print('Descriptive Statistics \n' , summary['frequency'].describe())
+    print('--------------------------')
+    one_time_buyers = round(sum(summary['frequency'] == 0)/float(len(summary))*(100),2)
+    print('Percentage of one time purchasers', one_time_buyers,'%')
+    print('\n')
+
+
+
+    print('\n\n Step 2: Fit Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
+    bgf = lifetimes.BetaGeoFitter(penalizer_coef=0.0)
+    bgf.fit(summary['frequency'], summary['recency'], summary['T'])
+    print(bgf.summary)
+    #visualize
+    fig = plt.figure(figsize=(12,8))
+    alive = lifetimes.plotting.plot_probability_alive_matrix(bgf)
+    plt.show()
+    plt.savefig('../images/prob_alive.png')
+
+
+
+    print('\n\n Step 3: Predict probability_alive \n')
+    summary['probability_alive'] = bgf.conditional_probability_alive(summary['frequency'], summary['recency'], summary['T'])
+    print('Mean probability a customer is alive is ' , round(summary['probability_alive'].mean(),2)*100,'%')
+    print('\n', summary.head(10))
+
+
+
+    print('\n\n Step 4: Predict expected number of purchases, pred_num_txn \n')
+    t =30
+    summary['pred_num_txn'] = round(bgf.conditional_expected_number_of_purchases_up_to_time(t, summary['frequency'], summary['recency'], summary['T']))
+    print(summary.sort_values(by='pred_num_txn', ascending=False).head(10).reset_index())
+
+
+
+    print('\n\n Step 5: Check predicted data to make sure it makes sense \n')
+    summary.to_csv('../data/processed/btyd_step5.csv')
+    print(summary.sort_values(by=['pred_num_txn'],ascending=False))
+    # Customer is currently the index...need to create customer id and reset index
+    #print(summary.columns)
+    # change column to pred_num_txn_t
+    # need to come back to this one
+
+
+
+
+    print('\n\n Step 6: Check correlation of frequency & monetary_value \n')
+    return_customers_summary = summary[summary['frequency']>0]
+    print(return_customers_summary.shape)
+    print(return_customers_summary.head())
+    return_customers_summary.to_csv('../data/processed/return_customers_summary.csv')
+    '''
+    # # TROUBLESHOOTING: ValueError("There exist non-positive (<= 0) values in the monetary_value vector.") ValueError: There exist non-positive (<= 0) values in the monetary_value vector.
+    # # line 444 on https://github.com/CamDavidsonPilon/lifetimes/blob/master/lifetimes/utils.py
+    # print(return_customers_summary.describe())
+    # print(return_customers_summary.info())
+    # print('\n monetary_value minimum ', return_customers_summary['monetary_value'].min())
+    # print('\n m<=0 ', return_customers_summary[return_customers_summary['monetary_value'] <= 0],'\n')
+    # print('\n', return_customers_summary['monetary_value'] <= 0)
+    '''
+    print('\n',return_customers_summary[['frequency', 'monetary_value']].corr())
+
+
+
+    print('\n\n Step 7: Fit Gamma-Gamma model to predict monetary value \n')
+    ggf = lifetimes.fitters.gamma_gamma_fitter.GammaGammaFitter(penalizer_coef=0.001)
+    ggf.fit(return_customers_summary['frequency'], return_customers_summary['monetary_value'] )
+    print(ggf.summary)
+
+
+    print('\n\n Step 8: Predict exp_avg_sales and compare to actual')
+    summary = summary[summary['monetary_value']>0]
+    summary['exp_avg_sales'] = ggf.conditional_expected_average_profit(summary['frequency'],summary['monetary_value'])
+    print(summary.head())
+    print('\n check predicted to actual:')
+    print(f'Expected Average Sales:', {summary['exp_avg_sales'].mean()})
+    print(f'Actual Average Sales:', {summary['monetary_value'].mean()})
+
+
+    print('\n\n Step 9: Predict Lifetime Value for t, predicted_ltv')
+    summary['predicted_ltv'] = ggf.customer_lifetime_value(bgf, 
+                                                            summary['frequency'],
+                                                            summary['recency'],
+                                                            summary['T'],
+                                                            summary['monetary_value'],
+                                                            time=1,
+                                                            freq='D',
+                                                            discount_rate=0.5)
+    print(summary.head())
+
+
+
+
+    print('\n\n Step 10: Check predicted_ltv to manual_predicted_ltv')
+    summary['manual_predicted_ltv'] = summary['pred_num_txn'] * summary['exp_avg_sales']
+    print(summary[summary['pred_num_txn']>0].head())
+
+
+
+    print('Step 11: Calculate CLV by multipying predicted_ltv * profit_margin')
+    profit_margin = 0.26
+    summary['CLV'] = summary['predicted_ltv']*profit_margin
+    print(summary[summary['pred_num_txn']>0].head())
+    summary.to_csv('../data/processed/CLTV.csv')
+
+    # Needs to actually use machine learning and have a train and test aka holdout
+
+    print('CBCV approach:  ')
+    #need to state:
+        # cac
+            #chart cac/yer
+        # actual ARPU
+            #chart ARPU/yr
+        # NOA
+        # ND
+        # FC
+        # TR
+        # WACC
+
+    #cohort analysis to find existing customer expected CLTV
+        #and to find expected customer acquisition 
