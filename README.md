@@ -4,12 +4,6 @@
 
 # Using Advanced Customer Analytics to Value a Company
 
-"The current value of a company is present worth of all its future cash flows"  
--1938 John Burr Williams in Theory of Investment value
-
-"The purpose of business is to create and keep a customer."
-- 1973 Peter Drucker in Management: Tasks, Responsibilities, Practices
-
 Company valuation traditionally has been calculated two ways
 1. Using a frequentist approach to project historical revenues, growth and cashflow numbers forward then discounting them for todays value of money.  
 
