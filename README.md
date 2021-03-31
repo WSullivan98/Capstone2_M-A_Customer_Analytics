@@ -14,6 +14,16 @@ With data science we can better predict revenues, growth and cashflows by segmen
 
 Then use those values to apply statistical models to predict future revenues and cashflows more accurately.
 
+<div align="center">
+<img src='images/frequency_histogram_eda.png' height='400'>
+</div>
+<br>
+
+<div align="center">
+<img src='images/invoice_scatter.png' height='400'>
+</div>
+<br>
+
 
 <div align="center">
 <img src='images/cohort_retention.png' height='400'>
