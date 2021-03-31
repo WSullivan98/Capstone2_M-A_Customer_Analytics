@@ -37,13 +37,22 @@ if __name__ == "__main__":
 
     #HISTOGRAM
     fig, ax = plt.subplots()
-    rmf['frequency'].plot(kind='hist',bins=30)
-    ax.set_title('Histogram of Frequency')
-    ax.set_xlabel('Number of Customers')
-    ax.set_ylabel('Number of Orders')
-    # ax.set_xticks(np.arange(1,30,1))
+    ax.hist(x=rmf['frequency'],bins=50 )    
+    ax.set_title('Histogram of Customer Order Count')
+    ax.set_ylabel('Number of Customers')
+    ax.set_xlabel('Order Count')
+    ax.set_xlim([0,30])
+    ax.set_xticks(np.arange(0,30,2))
+
+    # for p in ax.patches:
+    #     width = p.get_width()
+    #     height = p.get_height()
+    #     x, y = p.get_xy()
+    #     ax.annotate(f'{height:.0%}', (x + width/2, y + height*1.02), ha='center')
     #plt.show()
     plt.savefig('../images/frequency_histogram_eda.png')
+
+    print(rmf['frequency'].quantile([.35, .60, .75, .90]))
 
 
     print('Frequency Descriptive Statistics')
@@ -70,7 +79,7 @@ if __name__ == "__main__":
 
 
 
-    #Scatter plot of Invoice Sales Totals
+    #Scatter plot of Invoice Sales Totals by year
     fig, ax = plt.subplots(figsize=(12,8))
     plt.scatter(x=data['Year'], y=data['Sales Total'])
     ax.set_xlabel('Years', fontsize=12, fontweight='bold')
@@ -79,6 +88,21 @@ if __name__ == "__main__":
     #plt.show()
     plt.savefig('../images/invoice_scatter.png')
 
+
+
+    #Scatter plot of Activity by Month
+    fig, ax = plt.subplots(figsize=(12,8))
+    plt.scatter(x=data['Months'], y=data['Sales Total']) #need to show months chronologically
+    ax.set_xlabel('Months', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Sales Totals ($) per Transaction\n', fontsize=12, fontweight='bold')
+    ax.set_title('Scatter of Sales Activity\n',fontsize=16, fontweight='bold')
+    plt.show()
+    plt.savefig('../images/seasonality_eda.png')
+
+
+
+
+    #Cohort
     df = data[['Customer ID', 'Document Number', 'Year']].drop_duplicates()
     # df['order_month'] = df['Date'].to_period('')
     df['cohort'] = df.groupby('Customer ID')['Year'].transform('min')

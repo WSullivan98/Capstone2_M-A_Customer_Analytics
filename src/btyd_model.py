@@ -55,8 +55,10 @@ if __name__ == "__main__":
     #print(os.getcwd())
     
     print('Assumptions')
-    calibration_period_end='2020-09-30',
+    calibration_period_end='2020-09-30'
     observation_period_end='2020-12-31'
+    WACC = .25
+    profit_margin = 0.26
 
 
 
@@ -72,9 +74,9 @@ if __name__ == "__main__":
     summary.to_csv('../data/processed/rfm.csv')
     print(summary.head(),'\n')
     #visualize it
-    fig = plt.figure(figsize=(12,8))
-    summary['frequency'].plot(kind='hist', bins=35, title='Frequency Histogram') #add labels etc.
-    plt.show()
+    # fig = plt.figure(figsize=(12,8))
+    # summary['frequency'].plot(kind='hist', bins=35, title='Frequency Histogram') #add labels etc.
+    # plt.show()
     print('Descriptive Statistics \n' , summary['frequency'].describe())
     print('--------------------------')
     one_time_buyers = round(sum(summary['frequency'] == 0)/float(len(summary))*(100),2)
@@ -184,7 +186,7 @@ if __name__ == "__main__":
                                                             summary['monetary_value'],
                                                             time=1,
                                                             freq='D',
-                                                            discount_rate=0.05) #should we breakdown discount rate by 12 since t=30?
+                                                            discount_rate=WACC) #should we breakdown discount rate by 12 since t=30?
     print(summary.head())
 
 
@@ -201,6 +203,7 @@ if __name__ == "__main__":
     summary['CLV'] = summary['predicted_ltv']*profit_margin
     print(summary[summary['pred_num_txn']>0].head())
     summary.to_csv('../data/processed/BTYD_CLTV.csv')
+    print(summary['CLV'].sum())
     print('\n\nCLTV.csv saved')
     # Needs to actually use machine learning and have a train and test aka holdout
 
