@@ -61,8 +61,6 @@ if __name__ == "__main__":
     profit_margin = 0.26
 
 
-
-
     print("Step 0: Read in customer sales data")
     data = pd.read_csv('../data/processed/sales.csv')
     print(data.head())
@@ -72,6 +70,7 @@ if __name__ == "__main__":
     print('\n Step 1: Create RFM dataframe from the dataset ')
     summary = create_rfm_lifetimes(data,observation_period_end==observation_period_end)
     summary.to_csv('../data/processed/rfm.csv')
+    summary.to_pickle('../images/RFM_df.pkl')
     print(summary.head(),'\n')
     #visualize it
     # fig = plt.figure(figsize=(12,8))
