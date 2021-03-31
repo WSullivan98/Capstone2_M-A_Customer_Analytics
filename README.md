@@ -1,3 +1,7 @@
+<div align="center"> 
+<img src='images/CBCV_venn_diagram.png' height='400'>
+</div>  
+
 # Using Advanced Customer Analytics to Value a Company
 
 "The current value of a company is present worth of all its future cash flows"  
