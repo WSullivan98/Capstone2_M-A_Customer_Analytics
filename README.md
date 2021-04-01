@@ -1,9 +1,29 @@
 <div align="center"> 
-<img src='images/CBCV_venn_diagram.png' height='500'>
+<img src='images/CBCV_venn2.png' height='500'>
 </div>  
 
 # Using Advanced Customer Analytics to Value a Company 
 
+## Contents
+1. Background
+2. Motivation
+3. Wrangling Customer Data
+4. Processing & Analyzing the Data
+5. Model Selection
+6. Train & Evaluate Models
+7. HyperParameter Tuning
+8. Predictions
+9. CBCV Calculations
+10. Valuation Comparisons
+11. Opportunites going forward
+12. Lessons Learned  
+13. Appendices
+    * Additional Imagery
+    * Works cited
+
+
+
+# Background on Valuing a Business
 Company valuation traditionally has been calculated two ways
 1. **Discounted Cash Flow (DCF)**: a frequentist approach to project historical revenues, growth and cashflow numbers forward then discounting them for todays value of money.  
 
@@ -24,7 +44,7 @@ Company valuation traditionally has been calculated two ways
 
 
 
-With data science we can better predict revenues, growth and cashflows by segmenting customers into cohorts to:
+**Now With data science** we can better predict revenues, growth and cashflows by segmenting customers into cohorts to:
 * Model churn and retention rates for each cohort
 * Model expected future amount of transactions
 * Model expected average sales per transaction
@@ -32,12 +52,22 @@ With data science we can better predict revenues, growth and cashflows by segmen
 * Calculate average profit margin per customer
 * Calculate cash flows from customers aka Customer Life Time Values (CLTV)
 * Calculate sum of CLTVs by period cohorts to provide Future Cash Flows that can be discounted to todays value
+This advanced analytics approach is called **Customer-Based Corporate Valution** (CBCV) trademarked to Theta Equity Partners, https://www.thetaequity.com/.
 <br><br>
 
+
+# Motivation
+Curiousness to see how the advanced analytics CBCV compares to DCF or Market Multiple valuation approach for a lower middle market company.
+
+Financial engineering has long been the hallmark of investment firms but with the combination of Data Science and the Customer-Based Corporate Valuation (CBCV) approach they have the ability to add "Customer engineering" as another distinguishable charecteristic.
+* CBCV approach focuses on the purpose of business, building and retaining customers  
+* CBCV approach compared to alternative valuation approaches provides a more useful handover from the deal team to the operations team
+* CBCV segmentation can be implemented into Customer Relationship Management (CRM) and marketing tools
+* CBCV approach emphasis customer service as the long tail customer provide the most value in terms of customer equity and cashflow
 # Wrangle Customer Data:
 
-Company: "eChalk" is a supplier and installer of smart school equipment such as "smart boards"  
-Dataset: 6 years of customer transaction history
+**Company:** "eChalk" is a supplier and installer of smart school equipment such as "smart boards"  
+**Dataset:** 6 years of customer transaction history
 
 Report example:
 <div align="center">
@@ -51,12 +81,12 @@ Company Financials:
 </div>
 <br>
 
-### Key Financials takeaways:
-* Revenue               = $16,279,057
-* Profit Margin         = 26%
-* EBTIDA                = 2,387,000   
-* WACC                  = 0.25  
-* Monthly Discount Rate = 0.02
+## Key Financials takeaways:
+* $16,279,057 Revenue (trailing twelve months)  
+* 26% Gross Profit Margin 
+* $2,387,000 EBTIDA (trailing twelve months)
+* 0.25 WACC   
+* 0.02 Monthly Discount Rate 
 
 # Process & Analyze the Data:
 
@@ -99,7 +129,7 @@ avg sales per transaction 2020
 
 ## Model Goals 
 A) To predict Frequency (Number of Transactions) & Recency (Prob Alive)  
-B) Predict Monetary Value aka Avg Sales per Transaction  
+B) Predict Monetary Value (Avg Sales per Transaction)  
 C) A * B = Sales/yr in order to forecast sales  
 
 ## Hyperparameters & Holdout
@@ -109,11 +139,11 @@ C) A * B = Sales/yr in order to forecast sales
 * train on 2015-2019
 * holdout should be 2020 
 <div align="center">
-<img src='images/holdout_predicted.png' height='400'>
+<img src='images/Holdout_Predicted.png' height='400'>
 </div>
 <br>
 
-# Model(s)
+# Models:
 
 | Model        | Frequency | Recency | Monetary_Value | Output        |
 |--------------|-----------|---------|----------------|---------------|
@@ -132,12 +162,12 @@ C) A * B = Sales/yr in order to forecast sales
 
 
 
-# Train & Evaluate the Model
+# Train & Evaluate the Model:
 use Cross Validation Grid Search
 train on training data
 then evaluate on test data
 
-# HyperParameter Tuning
+# HyperParameter Tuning:
 t =   
 t =   
 t =  
@@ -151,20 +181,26 @@ holdout =
 </div>
 <br>
 
-Cohorts | Exp. Avg Value of Sales | Exp. Txn| Retention | LTV | Profit Margin | CLTV | WACC | (PV) CLTV
+
+
+Cohorts | Exp. Avg Value of Sales | * | Exp. Txn| * |Retention | = | LTV | * |Profit Margin | = |CLTV | \ | WACC |= |(PV) CLTV
 
 
 
-# CBCV Calculations
+# CBCV Calculations:
 
 
 
-# Valuation Comparison
+# Valuation Comparison:
 
 
+# Opportunites going forward:
 
 
-## noted resources
+# Lessons Learned:  
+Einstein's quote on 55 minutes of an hour to solve a problem  
+# Apendices:
+## Resources:
 McCarthy papers  
 Fader papers  
 Hardie notes & papers  

@@ -13,7 +13,8 @@ import lifetimes.plotting
 
 def  CBCV_steps():
     print('Step 1: Create RFM dataframe from the dataset')
-    print('Step 2: FIT Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
+    print('Step 2: FIT Models')
+    #Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
     print('Step 3: PREDICT probability_alive')
     print('Step 4: PREDICT expected number of purchases, pred_num_txn')
     print('Step 5: CHECK predicted data to make sure it makes sense')
@@ -86,7 +87,9 @@ if __name__ == "__main__":
 
 
 
-    print('\n\n Step 2: Fit Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
+    print('\n\n Step 2: Fit Models')
+    
+    #Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
     bgf = lifetimes.BetaGeoFitter(penalizer_coef=0.0)
     bgf.fit(summary['frequency'], summary['recency'], summary['T'])
     print(bgf.summary)
@@ -96,23 +99,26 @@ if __name__ == "__main__":
     plt.show()
     plt.savefig('../images/prob_alive.png')
 
-
-
+    #analysis:
+    # Probability Alive
     print('\n\n Step 3: Predict probability_alive \n')
     summary['probability_alive'] = bgf.conditional_probability_alive(summary['frequency'], summary['recency'], summary['T'])
     print('Mean probability a customer is alive is ' , round(summary['probability_alive'].mean(),2)*100,'%')
     print('\n', summary.head(10))
 
-
-
+    # Predicted Number of Purchases
     print('\n\n Step 4: Predict expected number of purchases, pred_num_txn \n')
-    t =30
+    t =365
     summary['pred_num_txn'] = round(bgf.conditional_expected_number_of_purchases_up_to_time(t, summary['frequency'], summary['recency'], summary['T']))
     print(summary.sort_values(by='pred_num_txn', ascending=False).head(10).reset_index())
     print('\n--------------------------')
     print(summary.sort_values(by='pred_num_txn').tail(5))
     
+
     print('\nTop 5 customers that the model expects to make a purchase in next month')
+
+
+
 
     print('\n\n Step 5: Check predicted data to make sure it makes sense \n')
     lifetimes.plotting.plot_period_transactions(bgf)
