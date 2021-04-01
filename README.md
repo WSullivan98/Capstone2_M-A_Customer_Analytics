@@ -5,7 +5,7 @@
 # Using Advanced Customer Analytics to Value a Company 
 
 Company valuation traditionally has been calculated two ways
-1. **Discounted Cash Flow (DCF)** is a frequentist approach to project historical revenues, growth and cashflow numbers forward then discounting them for todays value of money.  
+1. **Discounted Cash Flow (DCF)**: a frequentist approach to project historical revenues, growth and cashflow numbers forward then discounting them for todays value of money.  
 
 
 <div align="center"> 
@@ -13,7 +13,7 @@ Company valuation traditionally has been calculated two ways
 </div>
 <br>
 
-2. **Market Multiple** approach is similar to pricing a home:
+2. **Market Multiple**: similar to pricing a home:
     * Home Price = Total SQFT * $ per SQFT from comparable homes that recently sold or are on the market
     * Company Valuation = EBTIDA * Market Multiple
         * Middle Market Median Deal Multiples - Pepperdine 2020 report:
@@ -37,7 +37,7 @@ With data science we can better predict revenues, growth and cashflows by segmen
 # Wrangle Customer Data:
 
 Company: "eChalk" is a supplier and installer of smart school equipment such as "smart boards"  
-Dataset: 5 years of customer transaction history
+Dataset: 6 years of customer transaction history
 
 Report example:
 <div align="center">
@@ -51,13 +51,32 @@ Company Financials:
 </div>
 <br>
 
+### Key Financials takeaways:
+* Revenue               = $16,279,057
+* Profit Margin         = 26%
+* EBTIDA                = 2,387,000   
+* WACC                  = 0.25  
+* Monthly Discount Rate = 0.02
+
 # Process & Analyze the Data:
 
-nunique customers 990  
-repeat customers i.e. more than one purchase  
-repeat customer %  
+To find CLTV we transform sales data to a RFM dataset:
+* **Frequency** represents the number of repeat purchases the customer has made. This means that it’s one less than the total number of purchases.
+* **Recency** represents the age of the customer when they made their most recent purchases. This is equal to the duration between a customer’s first purchase and their latest purchase. (Thus if they have made only 1 purchase, the recency is 0.)
+* **T** represents the age of the customer in whatever time units chosen (daily, in our dataset). This is equal to the duration between a customer’s first purchase and the end of the period under study.
+* **Monetary_Value** Total amount of Money the Customers has spent
+
+<div align="center">
+<img src='images/rfm.png' height='300'>
+</div>
+<br>
+
+
+988 unique customers  
+340 are repeat customers i.e. more than one purchase  
+34.4% are repeat customers
 Transactions per year  
-avg sales per transaction 5 yrs  
+avg sales per transaction 6 yrs  
 avg sales per transaction 2020  
 
 
@@ -75,17 +94,15 @@ avg sales per transaction 2020
 <br>
 
 
-# Build & Train Models:
-Using the Customer Transactiion Sales data we are able to build a Recency, Frequency, Monetary Value (RFM) dataset
-* insert CustID RFM
-* pivot of 
+# Model Selection:
 
-# Model Goals 
-A) To predict Frequency (Number of Transactions) & Recency (Prob Alive)
-B) Predict Monetary Value aka Avg Sales per Transaction
-C) A * B = Sales/yr in order to forecast sales
 
-# Hyperparameter base assumptions:
+## Model Goals 
+A) To predict Frequency (Number of Transactions) & Recency (Prob Alive)  
+B) Predict Monetary Value aka Avg Sales per Transaction  
+C) A * B = Sales/yr in order to forecast sales  
+
+## Hyperparameters & Holdout
 * T = days
 * time = year 
 * any additional  
@@ -96,17 +113,21 @@ C) A * B = Sales/yr in order to forecast sales
 </div>
 <br>
 
-# Select Training Metric
+# Model(s)
 
+| Model        | Frequency | Recency | Monetary_Value | Output        |
+|--------------|-----------|---------|----------------|---------------|
+| DISCRETE     |           |         |                |               |
+| BG/NBD       |     X     |         |                | Pred_Txn      |
+| BG/NBD       |           |    X    |                | Prob_Alive    |
+| Gamma-Gamma  |           |         |        X       | Exp_Avg_Sales |
+| NON-DISCRETE |           |         |                |               |
+| Pareto/NBD   |           |         |                |               |
+| POP+POISSON  |           |         |                |               |
+| MBG/NBD      |           |         |                |               |
+| TBD          |           |         |                |               |
+| BG/BB        |           |         |                |               |
 
-# Select Model(s)
-
-| Model       | Frequency | Recency | Monetary_Value | Output        |
-|-------------|-----------|---------|----------------|---------------|
-| BG/NBD      |     X     |         |                | Pred_Txn      |
-| BG/NBD      |           |    X    |                | Prob_Alive    |
-| Gamma-Gamma |           |         |        X       | Exp_Avg_Sales |
-|             |           |         |                |               |
 
 
 
@@ -117,14 +138,14 @@ train on training data
 then evaluate on test data
 
 # HyperParameter Tuning
-t = 
-t = 
-t =
-holdout =
-holdout =
+t =   
+t =   
+t =  
+holdout =  
+holdout =  
 
 
-# Predictions:
+# Predict with the Best Model:
 <div align="center"> 
 <img src='images/calculation-for-customer-lifetime-value.jpeg' height='300'>
 </div>
@@ -152,3 +173,4 @@ Analytics Vidhya CLTV guide: https://www.analyticsvidhya.com/blog/2020/10/a-defi
 Modelling CLTV for Non-Contractual Business with Python: https://towardsdatascience.com/whats-a-customer-worth-8daf183f8a4f
 Cohort Analysis: https://towardsdatascience.com/a-step-by-step-introduction-to-cohort-analysis-in-python-a2cbbd8460ea
 https://www.kdnuggets.com/2018/05/general-approaches-machine-learning-process.html
+https://www.tablesgenerator.com/markdown_tables
