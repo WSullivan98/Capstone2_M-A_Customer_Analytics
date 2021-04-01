@@ -35,8 +35,8 @@ Company valuation traditionally has been calculated two ways
 
 2. **Market Multiple**: similar to pricing a home:
     * Home Price = Total SQFT * $ per SQFT from comparable homes that recently sold or are on the market
-    * Company Valuation = EBTIDA * Market Multiple
-        * Middle Market Median Deal Multiples - Pepperdine 2020 report:
+    * Company Valuation = EBITDA * Market Multiple
+        * See "Median Deal Multiples from Pepperdine's 2020 Middle Market report:
 <div align="center"> 
 <img src='images/Median_Deal_Multiple_Pepperdine.png' height='300'>
 </div>
@@ -97,7 +97,7 @@ To find CLTV we transform sales data to a RFM dataset:
 * **Monetary_Value** Total amount of Money the Customers has spent
 
 <div align="center">
-<img src='images/rfm.png' height='300'>
+<img src='images/rfm_df.png' height='300'>
 </div>
 <br>
 
