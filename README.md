@@ -97,7 +97,7 @@ To find CLTV we transform sales data to a RFM dataset:
 * **Monetary_Value** Total amount of Money the Customers has spent
 
 <div align="center">
-<img src='images/rfm_df.png' height='300'>
+<img src='images/RFM_df.png' height='300'>
 </div>
 <br>
 

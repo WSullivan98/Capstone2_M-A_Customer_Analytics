@@ -8,30 +8,11 @@ import lifetimes
 import lifetimes.utils
 import lifetimes.fitters
 import lifetimes.plotting
+import sklearn.metrics as metrics
 
 
 
-def  CBCV_steps():
-    print('Step 1: Create RFM dataframe from the dataset')
-    print('Step 2: FIT Models')
-    #Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
-    print('Step 3: PREDICT probability_alive')
-    print('Step 4: PREDICT expected number of purchases, pred_num_txn')
-    print('Step 5: CHECK predicted data to make sure it makes sense')
-    print('TRAIN, TEST SPLIT or  CALIBRATION and HOLDOUT')
-    print('Step 6: CHECK correlation of frequency & monetary_value')
-    print('Step 7: FIT Gamma-Gamma model to predict monetary value')
-    print('Step 8: PREDICT exp_avg_sales and compare to actual')
-    print('Step 9: PREDICT Lifetime Value, predicted_ltv')
-    print('Step 10: CHECK predicted_ltv to manual_predicted_ltv')
-    print('Step 11: Calculate CLV by multipying predicted_ltv * profit_margin')
-    print('CLTV = LTV * Profit Margin \n')
-    print('CBCV approach:  ')
-    # print('FCF = Customer Value - Fixed Cost * 1-Tax Rate
-    print('Customer value (CV) - Fixed Cost(FC) * (1-Tax Rate) + Net Operatign Assets (NOA) - Net Debt (ND)')
-    print('Customer Value = Present Value of Future Customers + Present Value of Existing Customers')
-    print('Present Value of Future Customers = Number of New Customers * ( CLTV of New Customers * Customer Acquisition Costs')
-    print('Possibly divide Value of Future Customer by WACC to get Present Value of Future Customers')
+
 
 def create_rfm_python(data):
     customer = data.groupby('Customer ID').agg({'Date':lambda x: (x.max)() - x.min().days,
@@ -41,177 +22,275 @@ def create_rfm_python(data):
     return customer
 
 def create_rfm_lifetimes(data,observation_period_end):
+    #https://lifetimes.readthedocs.io/en/latest/lifetimes.html#module-lifetimes.utils 
     summary = lifetimes.utils.summary_data_from_transaction_data(data, 
                                                                 customer_id_col = 'Customer ID',
                                                                 datetime_col = 'Date',
                                                                 monetary_value_col= 'Sales Total',
                                                                 observation_period_end=None,
-                                                                freq='D')
+                                                                freq='D',
+                                                                freq_multiplier=1)
     summary.reset_index()
     return summary
 
+def eval(actuals, predicted):
+    d = {'actuals',actuals,
+        'predicted', predicted} 
+    df = pd.concat(d, axis=1)
+    df['MAE'] = metrics.mean_absolute_error(actuals, predicted)
+    print(df)
+    return df 
 
 
 
 if __name__ == "__main__":
-    #CBCV_steps()
-    #print(os.getcwd())
-    
-    print('Assumptions')
-    calibration_period_end='2020-09-30'
-    observation_period_end='2020-12-31'
+
+    # Assumptions/Drivers
+    training_end ='2019-12-31'
+    validation_end ='2020-12-31'
     WACC = .25
+    monthly_discount_rate = WACC/12
     profit_margin = 0.26
+    t_params= [ 1, 30, 90, 365 ]
 
 
-    print("Step 0: Read in customer sales data")
-    data = pd.read_csv('../data/processed/sales.csv')
-    print(data.head())
+    # LOAD AND PROCESS DATA
+    # ------------------------------------------------------------------------------------------------
+    transactions = pd.read_csv('../data/processed/sales.csv')
+    rfm_actuals = lifetimes.utils.summary_data_from_transaction_data(transactions, 
+                                                                customer_id_col = 'Customer ID',
+                                                                datetime_col = 'Date',
+                                                                monetary_value_col= 'Sales Total',
+                                                                observation_period_end=None,
+                                                                freq='D',
+                                                                freq_multiplier=1)
+    rfm_actuals.reset_index()
+    rfm_actuals
 
-
-
-    print('\n Step 1: Create RFM dataframe from the dataset ')
-    summary = create_rfm_lifetimes(data,observation_period_end==observation_period_end)
-    summary.to_csv('../data/processed/rfm.csv')
-    #dfi.export(summary, '../images/RFM_df.png', max_rows=5)
-    print(summary.head(),'\n')
-    #visualize it
-    # fig = plt.figure(figsize=(12,8))
-    # summary['frequency'].plot(kind='hist', bins=35, title='Frequency Histogram') #add labels etc.
-    # plt.show()
-    print('Descriptive Statistics \n' , summary['frequency'].describe())
-    print('--------------------------')
-    one_time_buyers = round(sum(summary['frequency'] == 0)/float(len(summary))*(100),2)
-    print('Percentage of one time purchasers', one_time_buyers,'%')
-    print('\n')
+    rfm_actuals.to_csv('../data/processed/rfm.csv')
+    print(rfm_actuals.head(),'\n')
+    # -------------------------------------------------------------------------------------------------
 
 
 
-    print('\n\n Step 2: Fit Models')
+
+    # SPLIT
+    # -----------------------------------------------------------------------------------------------------------------------------
+    # https://lifetimes.readthedocs.io/en/latest/lifetimes.html#module-lifetimes.utils
+    '''
+    calibration_and_holdout_data() function returnds df with following _cal as calibration columns and _holdout as holdout columns:
+      frequency_cal
+      recency_cal
+      T_cal
+      frequency_holdout  
+      duration_holdout = End of Period - First purchase date
+    '''
+    rfm_train_test = lifetimes.utils.calibration_and_holdout_data(transactions,'Customer ID', 'Date', 
+                                                                        calibration_period_end=training_end,
+                                                                        observation_period_end=validation_end,
+                                                                        monetary_value_col='Sales Total')
     
-    #Beta Geometric / Negative Binomial distribution model (BG/NBD) to the RFM dataframe to predict transactions (Frequency) and churn (Recency)')
-    bgf = lifetimes.BetaGeoFitter(penalizer_coef=0.0)
-    bgf.fit(summary['frequency'], summary['recency'], summary['T'])
-    print(bgf.summary)
-    #visualize
-    fig = plt.figure(figsize=(12,8))
-    alive = lifetimes.plotting.plot_probability_alive_matrix(bgf)
-    plt.show()
-    plt.savefig('../images/prob_alive.png')
+    rfm_train_test = rfm_train_test.loc[rfm_train_test['frequency_cal'] >0,:]
+    train = rfm_train_test[['frequency_cal', 'recency_cal', 'T_cal']]
+    test  = rfm_train_test[['frequency_holdout', 'duration_holdout']]
+    print(rfm_train_test.head())
+    print(rfm_train_test.shape)
 
-    #analysis:
+    # ---------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+    # TRAIN
+    # -------------------------------------------------------------------------------------------------------------------------
+    #Beta Geometric / Negative Binomial distribution model (BG/NBD) to predict transactions (Frequency) and churn (Recency)')
+    bgf = lifetimes.BetaGeoFitter(penalizer_coef=0.0)
+    bgf.fit(rfm_train_test['frequency_cal'], rfm_train_test['recency_cal'], rfm_train_test['T_cal'])
+    print(bgf.summary)
+
+    lifetimes.plotting.plot_calibration_purchases_vs_holdout_purchases(bgf,rfm_train_test)
+    plt.savefig('../images/split.png')
+    plt.show()
+
+    #_________________________________________________________________________________________________________________________
+
+
+
+
+    #PREDICT
+    # --------------------------------------------------------------------------------------------------------------------------
     # Probability Alive
-    print('\n\n Step 3: Predict probability_alive \n')
-    summary['probability_alive'] = bgf.conditional_probability_alive(summary['frequency'], summary['recency'], summary['T'])
-    print('Mean probability a customer is alive is ' , round(summary['probability_alive'].mean(),2)*100,'%')
-    print('\n', summary.head(10))
+    alive_prediction_bgf= bgf.conditional_probability_alive(rfm_train_test['frequency_cal'],
+                                         rfm_train_test['recency_cal'],
+                                         rfm_train_test['T_cal'])
+    
+    rfm_train_test['probability_alive'] = alive_prediction_bgf
+
+    print('Mean probability a customer is alive is ' , round(rfm_train_test['probability_alive'].mean(),2)*100,'%')
+    print('\n', rfm_actuals.head(10))
 
     # Predicted Number of Purchases
-    print('\n\n Step 4: Predict expected number of purchases, pred_num_txn \n')
-    t =365
-    summary['pred_num_txn'] = round(bgf.conditional_expected_number_of_purchases_up_to_time(t, summary['frequency'], summary['recency'], summary['T']))
-    print(summary.sort_values(by='pred_num_txn', ascending=False).head(10).reset_index())
-    print('\n--------------------------')
-    print(summary.sort_values(by='pred_num_txn').tail(5))
-    
-
-    print('\nTop 5 customers that the model expects to make a purchase in next month')
-
+    t =30
+    purchase_prediction_bgf = round(bgf.conditional_expected_number_of_purchases_up_to_time(t,
+                                                                              rfm_train_test['frequency_cal'],
+                                                                              rfm_train_test['recency_cal'],
+                                                                              rfm_train_test['T_cal']))    
+    rfm_train_test['predicted_purchases'] = purchase_prediction_bgf
+    print(rfm_train_test.head())
+    # --------------------------------------------------------------------------------------------------------------------------
 
 
-
-    print('\n\n Step 5: Check predicted data to make sure it makes sense \n')
+    print('\n\n Check predicted data to make sure the model makes sense \n')
     lifetimes.plotting.plot_period_transactions(bgf)
-    plt.show()
-    summary.to_csv('../data/processed/btyd_step5.csv')
-    print(summary.sort_values(by=['pred_num_txn'],ascending=False))
-    print('---------------------')
-    t=30
-    school = summary.loc[100625]
-    print(f'/n/n Customer #, {school}, future transaction over next, {t} ,days')
-    print(bgf.predict(t, school['frequency'], school['recency'], school['T']))
-    # Customer is currently the index...need to create customer id and reset index
-    #print(summary.columns)
-    # change column to pred_num_txn_t
-    # need to come back to this one
-
-
-
-
-    print('\n\nTRAIN, TEST SPLIT or  CALIBRATION and HOLDOUT')
-    summary_cal_holdout = lifetimes.utils.calibration_and_holdout_data(data,'Customer ID', 'Date', 
-                                                                        calibration_period_end='2020-09-30',
-                                                                        observation_period_end='2020-12-31')
-    print(summary_cal_holdout.head())
-
-    print('Plot calibration purchases vs holdout purchases')
-    bgf.fit(summary_cal_holdout['frequency_cal'],
-            summary_cal_holdout['recency_cal'],
-            summary_cal_holdout['T_cal'])
-    lifetimes.plotting.plot_calibration_purchases_vs_holdout_purchases(bgf,summary_cal_holdout)
+    plt.savefig('../images/period_transactions.png')
     plt.show()
 
+    print('\n 10 Best Customers\n')
+    print(rfm_train_test.sort_values(by='predicted_purchases', ascending=False).head(10).reset_index())
+    print('\n--------------------------')
 
-    print('\n\n Step 6: Check correlation of frequency & monetary_value \n')
-    return_customers_summary = summary[summary['frequency']>0]
-    print(return_customers_summary.head())
-    print(return_customers_summary.shape)
-    return_customers_summary.to_csv('../data/processed/return_customers_summary.csv')
-    '''
-    # # TROUBLESHOOTING: ValueError("There exist non-positive (<= 0) values in the monetary_value vector.") ValueError: There exist non-positive (<= 0) values in the monetary_value vector.
-    # # line 444 on https://github.com/CamDavidsonPilon/lifetimes/blob/master/lifetimes/utils.py
-    # print(return_customers_summary.describe())
-    # print(return_customers_summary.info())
-    # print('\n monetary_value minimum ', return_customers_summary['monetary_value'].min())
-    # print('\n m<=0 ', return_customers_summary[return_customers_summary['monetary_value'] <= 0],'\n')
-    # print('\n', return_customers_summary['monetary_value'] <= 0)
-    '''
-    print('\n',return_customers_summary[['frequency', 'monetary_value']].corr())
+    print('\n\nTop 5 customers that the model expects to make a purchase in next month\n')
+    print('Predicted Purchase mean :', rfm_train_test['predicted_purchases'].mean())
+    print(rfm_train_test.sort_values(by='predicted_purchases').tail(5))
 
 
 
-    print('\n\n Step 7: Fit Gamma-Gamma model to predict monetary value \n')
-    ggf = lifetimes.fitters.gamma_gamma_fitter.GammaGammaFitter(penalizer_coef=0.001)
-    ggf.fit(return_customers_summary['frequency'], return_customers_summary['monetary_value'] )
+
+    # FIT GAMMMA-GAMMA MODEL
+    # -------------------------------------------------------------------------------------------------------------------
+    print('\n\n Check correlation of frequency & monetary_value \n')
+    print('\n',rfm_train_test[['frequency_cal', 'monetary_value_cal']].corr())
+
+    print('\n\n Fit Gamma-Gamma model to predict monetary value \n')
+    ggf = lifetimes.fitters.gamma_gamma_fitter.GammaGammaFitter(penalizer_coef=0.0001)
+    ggf.fit(rfm_train_test['frequency_cal'],
+            rfm_train_test['monetary_value_cal'] )
     print(ggf.summary)
 
 
-    print('\n\n Step 8: Predict exp_avg_sales and compare to actual')
-    summary = summary[summary['monetary_value']>0]
-    summary['exp_avg_sales'] = ggf.conditional_expected_average_profit(summary['frequency'],summary['monetary_value'])
-    print(summary.head())
-    print('\n check predicted to actual:')
-    print(f'Expected Average Sales:', {summary['exp_avg_sales'].mean()})
-    print(f'Actual Average Sales:', {summary['monetary_value'].mean()})
+    # GAMMMA-GAMMA PREDICTION
+    # -------------------------------------------------------------------------------------------------------------------
+    print('\n\n Predict exp_avg_sales')
 
-
-    print('\n\n Step 9: Predict Lifetime Value for t, predicted_ltv')
-    summary['predicted_ltv'] = ggf.customer_lifetime_value(bgf, 
-                                                            summary['frequency'],
-                                                            summary['recency'],
-                                                            summary['T'],
-                                                            summary['monetary_value'],
-                                                            time=1,
-                                                            freq='D',
-                                                            discount_rate=WACC) #should we breakdown discount rate by 12 since t=30?
-    print(summary.head())
+    monetary_pred = ggf.conditional_expected_average_profit(rfm_train_test['frequency_holdout'],
+                                                       rfm_train_test['monetary_value_holdout'])
+    
+    rfm_train_test['exp_avg_sales'] = monetary_pred
+    
+    print(rfm_train_test.head())
 
 
 
 
-    print('\n\n Step 10: Check predicted_ltv to manual_predicted_ltv')
-    #summary['manual_predicted_ltv'] = summary['pred_num_txn'] * summary['exp_avg_sales']
-    print(summary[summary['pred_num_txn']>0].head())
+    # PREDICT CLV
+    # -------------------------------------------------------------------------------------------------------------------
+
+    print('\n\n Predict Lifetime Value for t, predicted_ltv')
+    ltv = ggf.customer_lifetime_value( bgf, 
+                                        rfm_train_test['frequency_cal'],
+                                        rfm_train_test['recency_cal'],
+                                        rfm_train_test['T_cal'],
+                                        rfm_train_test['monetary_value_cal'],
+                                        time=30, # 1 yr
+                                        discount_rate = 0.02
+                                        )                         
+                                                                
+    rfm_train_test['predicted_ltv'] = ltv
+
+    print('\n\n Calculate CLV by multipying predicted_ltv * profit_margin')
+    rfm_train_test['CLV'] = rfm_train_test['predicted_ltv']*profit_margin
+    print(rfm_train_test[rfm_train_test['predicted_purchases']>0].head())
+
+    # ------------------------------------------------------------------------------------------------------------------------------
 
 
 
-    print('Step 11: Calculate CLV by multipying predicted_ltv * profit_margin')
-    profit_margin = 0.26
-    summary['CLV'] = summary['predicted_ltv']*profit_margin
-    print(summary[summary['pred_num_txn']>0].head())
-    summary.to_csv('../data/processed/BTYD_CLTV.csv')
-    print(summary['CLV'].sum())
-    print('\n\nCLTV.csv saved')
-    # Needs to actually use machine learning and have a train and test aka holdout
+
+    # Evaluate
+    # ------------------------------------------------------------------------------------------------------------------------------
 
 
+
+
+
+
+
+
+    # RETRAINING THE MODEL
+    # ------------------------------------------------------------------------------------------------------------------------------
+    #RFM
+
+    rfm = rfm_actuals = lifetimes.utils.summary_data_from_transaction_data(transactions, 
+                                                                            customer_id_col = 'Customer ID',
+                                                                            datetime_col = 'Date',
+                                                                            monetary_value_col= 'Sales Total',
+                                                                            observation_period_end=None,
+                                                                            freq='D',
+                                                                            freq_multiplier=1)
+    rfm = rfm.loc[rfm.frequency > 0, :]
+
+
+    #BG/NBD
+    bgf = lifetimes.BetaGeoFitter(penalizer_coef=0.0)
+    bgf.fit(rfm['frequency'], rfm['recency'], rfm['T'])
+
+
+    #GG
+    ggf = lifetimes.fitters.gamma_gamma_fitter.GammaGammaFitter(penalizer_coef = 0)
+    ggf.fit(rfm['frequency'], rfm['monetary_value'])
+
+    #CLV model
+    ltv = ggf.customer_lifetime_value(
+                                    bgf, #the model to use to predict the number of future transactions
+                                    rfm['frequency'],
+                                    rfm['recency'],
+                                    rfm['T'],
+                                    rfm['monetary_value'],
+                                    time=30, # months
+                                    discount_rate=0.01 # monthly discount rate ~ 12.7% annually
+                                    )
+
+    rfm['predicted_ltv'] = ltv
+    rfm['CLV'] = rfm['predicted_ltv']*profit_margin
+    
+    
+    print(rfm.head())
+    
+    print('rfm_actuals',rfm_actuals.mean())
+    print('\n\n' )
+    print('rfm_train_test',rfm_train_test.mean())
+    print('\n\n' )  
+    print('\n\n CLV means\n',rfm.mean())
+    print('\nCLV sum ',rfm['CLV'].sum(),'\n')
+
+
+    metrics.mean_absolute_error(3.76,5.74)
+
+
+
+
+    # Save the Model
+    # ------------------------------------------------------------------------------------------------------------------------------
+    
+
+    # rfm.to_csv('../data/processed/BTYD_CLTV.csv')
+    # print('CLV sum ',rfm_train_test['CLV'].sum())
+    # print('\n\nCLTV.csv saved')
+
+
+
+
+    # create scorer function 
+
+    # pass in test and train data with time interval
+    # predict
+    # compare 
+    # score
+
+
+
+    # print('R-Square:', metrics.r2_score( actual purchase num 2020 , predicted purchase count 2020))
+    # print('MAE:', metrics.mean_absolute_error(test, train))
+    # print('MSE', metrics.mean_squared_error(test, train))
+    # print('RMSE:', np.sqrt(metrics.mean_squared_error(test, train)))
