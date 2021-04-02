@@ -265,7 +265,7 @@ if __name__ == "__main__":
     print('\nCLV sum ',rfm['CLV'].sum(),'\n')
 
 
-    metrics.mean_absolute_error(3.76,5.74)
+    metrics.mean_absolute_error(rfm_actuals['frequency'],rfm_train_test['frequency_cal'])
 
 
 
